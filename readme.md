@@ -16,6 +16,7 @@ We're cool as long as we can view your solution without any pain.
 ### 1. Kế thừa `FormattedWalletBalance` từ `WalletBalance`
 #### **Vấn đề**
 - `FormattedWalletBalance` và `WalletBalance` đều có các trường `currency` và `amount`, dẫn đến lặp code.
+- `WalletBalance` thiếu type `blockchain`
 
 #### **Giải pháp**
 - Kế thừa `FormattedWalletBalance` từ `WalletBalance` để tái sử dụng code:
@@ -24,6 +25,7 @@ We're cool as long as we can view your solution without any pain.
 interface WalletBalance {
   currency: string;
   amount: number;
+  blockchain: Blockchain;
 }
 
 interface FormattedWalletBalance extends WalletBalance {
@@ -198,5 +200,84 @@ const rows = processedBalances.map((balance) => (
   />
 ));
 ```
+
+## Sửa lỗi
+```typescript
+import React, { useMemo } from 'react';
+
+// Types & Interfaces
+interface WalletBalance {
+  currency: string;
+  amount: number;
+  blockchain: Blockchain;
+}
+
+interface FormattedWalletBalance extends WalletBalance {
+  formatted: string;
+  usdValue: number;
+}
+
+enum Blockchain {
+  Osmosis = 'Osmosis',
+  Ethereum = 'Ethereum',
+  Arbitrum = 'Arbitrum',
+  Zilliqa = 'Zilliqa',
+  Neo = 'Neo'
+}
+
+const getPriority = (blockchain: Blockchain): number => {
+  const priorityMap: Record<Blockchain, number> = {
+    [Blockchain.Osmosis]: 100,
+    [Blockchain.Ethereum]: 50,
+    [Blockchain.Arbitrum]: 30,
+    [Blockchain.Zilliqa]: 20,
+    [Blockchain.Neo]: 20,
+  };
+  return priorityMap[blockchain] ?? -99;
+};
+
+const calculateUsdValue = (amount: number, price: number): number => {
+  return amount * (price || 0);
+};
+
+interface Props extends BoxProps {}
+
+const WalletPage: React.FC<Props> = (props: Props) => {
+  const { children, ...rest } = props;
+  const balances = useWalletBalances();
+  const prices = usePrices();
+
+  const processedBalances = useMemo(() => {
+    return balances.reduce<FormattedWalletBalance[]>((acc, balance) => {
+      if (getPriority(balance.blockchain) > -99 && balance.amount > 0) {
+        acc.push({
+          ...balance,
+          formatted: balance.amount.toFixed(2),
+          usdValue: calculateUsdValue(balance.amount, prices[balance.currency])
+        });
+      }
+      return acc;
+    }, []).sort((lhs, rhs) => getPriority(rhs.blockchain) - getPriority(lhs.blockchain));
+  }, [balances]);
+
+  const rows = useMemo(() => 
+    processedBalances.map((balance) => (
+      <WalletRow 
+        className={classes.row}
+        key={`${balance.blockchain}-${balance.currency}`}
+        amount={balance.amount}
+        usdValue={balance.usdValue}
+        formattedAmount={balance.formatted}
+      />
+    )), [processedBalances]
+  );
+
+  return <div {...rest}>{rows}</div>;
+};
+
+export default WalletPage;
+```
+
+
 
 
