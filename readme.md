@@ -258,7 +258,7 @@ const WalletPage: React.FC<Props> = (props: Props) => {
       }
       return acc;
     }, []).sort((lhs, rhs) => getPriority(rhs.blockchain) - getPriority(lhs.blockchain));
-  }, [balances]);
+  }, [balances, prices]);
 
   const rows = useMemo(() => 
     processedBalances.map((balance) => (
